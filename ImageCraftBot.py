@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[9]:
-
-
 import telebot
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -12,64 +6,36 @@ from io import BytesIO
 from datetime import datetime
 import os
 
-
-# In[ ]:
-
-
 TOKEN = os.environ.get("IC_TELEGRAM_BOT_TOKEN")
-
-
-# In[ ]:
-
 
 bot = telebot.TeleBot(TOKEN)
 
-
-# In[ ]:
-
-
 user_states = {}
 
-
-# In[ ]:
-
-
 image_content = None
-
-
-# In[ ]:
-
 
 @bot.message_handler(commands = ["start"])
 def send_welcome(message):
     print("Handler [send_welcome] called with message:", message.text)
     bot.reply_to(message,"Привет, я Ваш фото-бот! Загрузите фото, и я помогу его обработать!")
 
-
-# In[12]:
-
-
+#функция зеркального отображения
 def mirror_image(image_content):
     with Image.open(BytesIO(image_content)) as im:
         im_mirror = im.transpose(Image.FLIP_LEFT_RIGHT)
         output = BytesIO()
-        im_mirror.save(output, format="JPEG")  # или другой формат, если необходимо
+        im_mirror.save(output, format="JPEG")  # или другой формат
         output.seek(0)
     return output
 
 
-# In[ ]:
-
-
+#функция конвертации изображения в статичное (по первому кадру)
 def convert_to_static(image_path):
     with Image.open(image_path) as img:
-        img.seek(0)  # переходим к первому кадру
-        img.save(image_path, "PNG")  # сохраняем первый кадр как PNG
+        img.seek(0)  # переход к первому кадру
+        img.save(image_path, "PNG")  #сохранение первого кадр как PNG
 
-
-# In[ ]:
-
-
+#функция наложения случайного стикера
 def random_sticker():
     print("Function [random_sticker] called.")
     API_KEY = "zg2XR3iT0gRRtkVIekgORsl7kUDcnJiq"
@@ -79,14 +45,14 @@ def random_sticker():
         json_data = response.json()
         sticker_url = json_data["data"]["images"]["downsized"]["url"]
         
-        # Скачиваем стикер
+        # Скачивание стикера
         response_image = requests.get(sticker_url)
         if response_image.status_code == 200:
             image_path = "downloaded_sticker.png"
             with open(image_path, "wb") as file:
                 file.write(response_image.content)
             
-            # Конвертируем стикер в статическое изображение
+            # Конвертация стикера в статическое изображение
             convert_to_static(image_path)
             return image_path
         else:
@@ -97,15 +63,12 @@ def random_sticker():
         return None
 
 
-# In[11]:
-
-
 def add_sticker(image_path):
     print("Function [add_sticker] called with image_path:", image_path)
-    sticker_path = random_sticker()  # это локальный путь к файлу, а не URL
+    sticker_path = random_sticker()  # локальный путь к файлу (не URL)
     if sticker_path:
         with Image.open(image_path) as img:
-            # Конвертируем изображение в RGBA, если это необходимо
+            # Конвертация изображения в RGBA, если это необходимо
             if img.mode != 'RGBA':
                 img = img.convert('RGBA')
 
@@ -114,18 +77,18 @@ def add_sticker(image_path):
             if sticker.mode != 'RGBA':
                 sticker = sticker.convert('RGBA')
 
-            # Удаляем однотонный фон стикера
+            # Удаление однотонного фона стикера
             datas = sticker.getdata()
             newData = []
             for item in datas:
-                # Если альфа-канал выше порога (в данном случае 50)
+                # Если альфа-канал выше порога (сейчас 50)
                 if item[3] > 50:
                     newData.append((item[0], item[1], item[2], 255))
                 else:
                     newData.append((255, 255, 255, 0))  # полностью прозрачный пиксель с белым RGB
             sticker.putdata(newData)
             
-            # Создаем маску из альфа-канала стикера
+            # Создание маскумаски из альфа-канала стикера
             mask = sticker.split()[3]  # A channel
             
             x_position = (img.width - sticker.width) // 2
@@ -136,26 +99,21 @@ def add_sticker(image_path):
             output_path = "image_with_sticker.jpg"
             img.save(output_path, "JPEG")
             
-        os.remove(sticker_path)  # удаляем временный файл стикера
+        os.remove(sticker_path)  # удаление временныйвременного файлфайла стикера
         return output_path
     else:
         print("Failed to get sticker.")
         return image_path
 
 
-# In[ ]:
-
-
 def is_valid_date(date_str, format="%d.%m.%Y"):
     try:
-        # Пытаемся преобразовать строку в дату
+        # Попытки преобразовать строку в дату
         datetime.strptime(date_str, format)
         return True
     except ValueError:
         return False
 
-
-# In[ ]:
 
 
 def add_date(image_content,date, message):
@@ -163,26 +121,21 @@ def add_date(image_content,date, message):
     if is_valid_date(date):
         with Image.open(BytesIO(image_content)) as img:
             draw = ImageDraw.Draw(img)
-            font = ImageFont.truetype("ArialRegular.ttf", 25)  # Выберите подходящий шрифт и размер
-            draw.text((40, 40), date, font=font, fill="red")  # Вы можете изменить координаты и цвет
+            font = ImageFont.truetype("ArialRegular.ttf", 25)  # шрифт и размер
+            draw.text((40, 40), date, font=font, fill="red")  #координаты и цвет
             output = BytesIO()
-            img.save(output, format="JPEG")  # или другой формат, если необходимо
+            img.save(output, format="JPEG") #формат
             output.seek(0)
         return output
     else:
         bot.send_message(message.chat.id, "Ошибка формата даты")
 
 
-# In[13]:
-
 
 def request_date(message):
     bot.send_message(message.chat.id, "Введите дату в формате ДД.ММ.ГГГГ")
     user_states[message.chat.id] = "awaiting_date"
     print("Setting user state:", message.chat.id, "to awaiting_date")
-
-
-# In[ ]:
 
 
 @bot.message_handler(content_types = ["photo"])
@@ -200,10 +153,8 @@ def handle_photo(message):
     user_states[str(message.chat.id) + "_image"] = image_content
 
 
-# In[ ]:
 
-
-#ОТЗЕРКАЛИТЬ
+#обработчик ОТЗЕРКАЛИТЬ
 @bot.message_handler(func=lambda message: message.text == "Отзеркалить")
 def handle_photo2(message):
     print("Handler [handle_photo2] called with message:", message.text)
@@ -216,10 +167,8 @@ def handle_photo2(message):
         bot.send_message(message.chat.id, "Изображение не найдено!")  
 
 
-# In[ ]:
 
-
-#СЛУЧАЙНЫЙ СТИКЕР
+#обработчик СЛУЧАЙНЫЙ СТИКЕР
 @bot.message_handler(func=lambda message: message.text == "Добавить стикер")
 def handle_photo3(message):
     print("Handler [handle_photo3] called with message:", message.text)
@@ -232,18 +181,14 @@ def handle_photo3(message):
         bot.send_message(message.chat.id, "Изображение не найдено!")
 
 
-# In[ ]:
-
-
+#обрабочик ДОБАВИТЬ ДАТУ
 @bot.message_handler(func = lambda message: message.text == "Добавить дату")
 def handle_photo4(message):
     print("Handler [handle_photo4] called with message:", message.text)
     request_date(message)
 
 
-# In[ ]:
-
-
+#обработчик текста (входящий текст с датой)
 @bot.message_handler(content_types=["text"])
 def handle_text(message):
     print("Handler [handle_text] called with message:", message.text)
@@ -262,14 +207,7 @@ def handle_text(message):
             bot.send_message(message.chat.id, "Изображение не найдено!")
 
 
-# In[ ]:
-
-
 print("Бот запущен!")
-
-
-# In[ ]:
-
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
